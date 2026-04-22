@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>spice 管理画面</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif; background: #f5f5f7; color: #222; }
+  header { background: #0d0d0d; color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+  header h1 { margin: 0; font-size: 20px; color: #FF6B35; }
+  header .user { font-size: 13px; color: #aaa; }
+  header button { background: transparent; color: #aaa; border: 1px solid #333; padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 13px; margin-left: 12px; }
+  header button:hover { color: #fff; border-color: #666; }
+  main { max-width: 1280px; margin: 0 auto; padding: 24px; }
+  .tabs { display: flex; gap: 8px; border-bottom: 2px solid #e5e5e5; margin-bottom: 24px; }
+  .tab { padding: 12px 20px; cursor: pointer; border-bottom: 3px solid transparent; color: #666; font-weight: 600; font-size: 15px; transition: 0.15s; user-select: none; }
+  .tab.active { color: #FF6B35; border-bottom-color: #FF6B35; }
+  .tab .count { background: #FF6B35; color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-left: 6px; font-weight: bold; }
+  .tab.active .count { background: #FF6B35; }
+  .tab:not(.active) .count { background: #ccc; }
+  .login { max-width: 380px; margin: 80px auto; padding: 32px; background: #fff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+  .login h2 { margin: 0 0 8px; color: #FF6B35; font-size: 22px; }
+  .login p { color: #888; font-size: 13px; margin: 0 0 24px; }
+  .login input { width: 100%; padding: 12px 14px; border: 1px solid #ddd; border-radius: 10px; font-size: 15px; margin-bottom: 12px; }
+  .login button { width: 100%; padding: 14px; background: #FF6B35; color: #fff; border: none; border-radius: 50px; font-size: 15px; font-weight: bold; cursor: pointer; }
+  .login .err { color: #e03; font-size: 13px; margin-top: 8px; min-height: 20px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 20px; }
+  .card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .card-head { padding: 16px 18px; border-bottom: 1px solid #f0f0f0; }
+  .card-name { font-size: 17px; font-weight: bold; margin: 0 0 4px; }
+  .card-meta { font-size: 12px; color: #888; font-family: monospace; word-break: break-all; }
+  .card-info { font-size: 13px; color: #555; margin-top: 6px; }
+  .images { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: #f0f0f0; }
+  .images a { aspect-ratio: 1; overflow: hidden; background: #ddd; display: block; position: relative; }
+  .images img { width: 100%; height: 100%; object-fit: cover; }
+  .images .label { position: absolute; top: 4px; left: 4px; background: rgba(0,0,0,0.7); color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; }
+  .actions { display: flex; gap: 8px; padding: 12px; }
+  .actions button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.15s; }
+  .btn-approve { background: #34C759; color: #fff; }
+  .btn-approve:hover { background: #2fb350; }
+  .btn-reject { background: #FF3B30; color: #fff; }
+  .btn-reject:hover { background: #e8342a; }
+  .btn-neutral { background: #f0f0f0; color: #333; }
+  .empty { text-align: center; color: #999; padding: 80px 20px; font-size: 15px; }
+  .loading { text-align: center; padding: 40px; color: #888; }
+  .report-card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; border-left: 4px solid #FF3B30; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .report-card.resolved { border-left-color: #34C759; opacity: 0.7; }
+  .report-cat { display: inline-block; background: #FFE5E3; color: #c03; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-bottom: 10px; }
+  .report-card.resolved .report-cat { background: #E3F4DA; color: #2a7a37; }
+  .report-reason { background: #fafafa; padding: 12px 14px; border-radius: 8px; font-size: 14px; color: #333; white-space: pre-wrap; margin-bottom: 14px; line-height: 1.5; }
+  .report-users { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+  .report-user { background: #fafafa; border-radius: 8px; padding: 12px; }
+  .report-user .role { font-size: 11px; color: #888; margin-bottom: 4px; font-weight: bold; }
+  .report-user .name { font-size: 14px; font-weight: 600; color: #222; margin-bottom: 4px; }
+  .report-user .id { font-size: 10px; color: #aaa; font-family: monospace; word-break: break-all; margin-bottom: 8px; }
+  .report-user a { font-size: 12px; color: #FF6B35; text-decoration: none; font-weight: bold; }
+  .report-time { font-size: 11px; color: #aaa; margin-top: 8px; }
+  .report-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .report-actions button { padding: 10px 16px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; }
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #222; color: #fff; padding: 12px 24px; border-radius: 50px; font-size: 14px; z-index: 100; opacity: 0; transition: 0.3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {
+  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import {
+  getFirestore, collection, query, where, orderBy, onSnapshot,
+  doc, updateDoc, deleteDoc, serverTimestamp,
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBBvPiFqA5JZ67emmhhqzOy6_tvOVnKrSs",
+  authDomain: "spice-app-7ca98.firebaseapp.com",
+  projectId: "spice-app-7ca98",
+  storageBucket: "spice-app-7ca98.firebasestorage.app",
+  messagingSenderId: "920954597322",
+  appId: "1:920954597322:web:1135842a4d725db34a6933",
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app, 'default');
+
+const appEl = document.getElementById('app');
+let currentTab = 'pending';
+let pendingUsers = [];
+let reports = [];
+let toastTimer;
+
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    t.classList.remove('show');
+    setTimeout(() => t.remove(), 300);
+  }, 2500);
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({
+    '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+  })[c]);
+}
+
+function renderLogin(err) {
+  appEl.innerHTML = `
+    <div class="login">
+      <h2>🌶️ spice 管理画面</h2>
+      <p>管理者アカウントでログインしてください</p>
+      <input id="email" type="email" placeholder="メールアドレス" autocomplete="email" />
+      <input id="pass" type="password" placeholder="パスワード" autocomplete="current-password" />
+      <button id="loginBtn">ログイン</button>
+      <div class="err">${err || ''}</div>
+    </div>
+  `;
+  document.getElementById('loginBtn').onclick = async () => {
+    const email = document.getElementById('email').value.trim();
+    const pass = document.getElementById('pass').value;
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+    } catch (e) {
+      renderLogin(e.message);
+    }
+  };
+}
+
+function renderShell(user) {
+  appEl.innerHTML = `
+    <header>
+      <h1>🌶️ spice 管理画面</h1>
+      <div>
+        <span class="user">${escapeHtml(user.email)}</span>
+        <button id="logoutBtn">ログアウト</button>
+      </div>
+    </header>
+    <main>
+      <div class="tabs">
+        <div class="tab" data-tab="pending">年齢確認 <span class="count" id="pendingCount">0</span></div>
+        <div class="tab" data-tab="reports">通報 <span class="count" id="reportCount">0</span></div>
+        <div class="tab" data-tab="resolved">対応済み <span class="count" id="resolvedCount">0</span></div>
+      </div>
+      <div id="content"><div class="loading">読み込み中...</div></div>
+    </main>
+  `;
+  document.getElementById('logoutBtn').onclick = () => signOut(auth);
+  document.querySelectorAll('.tab').forEach(el => {
+    el.onclick = () => {
+      currentTab = el.dataset.tab;
+      updateTabs();
+      renderContent();
+    };
+  });
+  updateTabs();
+}
+
+function updateTabs() {
+  document.querySelectorAll('.tab').forEach(el => {
+    el.classList.toggle('active', el.dataset.tab === currentTab);
+  });
+}
+
+function renderContent() {
+  const c = document.getElementById('content');
+  if (!c) return;
+  if (currentTab === 'pending') {
+    if (!pendingUsers.length) {
+      c.innerHTML = '<div class="empty">✨ 承認待ちのユーザーはいません</div>';
+      return;
+    }
+    c.innerHTML = '<div class="grid">' + pendingUsers.map(u => `
+      <div class="card">
+        <div class="card-head">
+          <div class="card-name">${escapeHtml(u.name)}</div>
+          <div class="card-info">${escapeHtml(String(u.age))}歳 / ${escapeHtml(u.gender)}</div>
+          <div class="card-meta">${escapeHtml(u.id)}</div>
+          <div class="card-info" style="color:#888;margin-top:4px;">申請: ${u.submittedAt || '-'}</div>
+        </div>
+        <div class="images">
+          <a href="${escapeHtml(u.idImageUrl || '#')}" target="_blank">
+            <div class="label">身分証</div>
+            ${u.idImageUrl ? `<img src="${escapeHtml(u.idImageUrl)}" alt="ID" />` : ''}
+          </a>
+          <a href="${escapeHtml(u.selfieImageUrl || '#')}" target="_blank">
+            <div class="label">自撮り</div>
+            ${u.selfieImageUrl ? `<img src="${escapeHtml(u.selfieImageUrl)}" alt="Selfie" />` : ''}
+          </a>
+        </div>
+        <div class="actions">
+          <button class="btn-reject" data-reject="${u.id}">❌ 却下</button>
+          <button class="btn-approve" data-approve="${u.id}">✅ 承認</button>
+        </div>
+      </div>
+    `).join('') + '</div>';
+    c.querySelectorAll('[data-approve]').forEach(b => b.onclick = () => approve(b.dataset.approve));
+    c.querySelectorAll('[data-reject]').forEach(b => b.onclick = () => reject(b.dataset.reject));
+  } else if (currentTab === 'reports' || currentTab === 'resolved') {
+    const list = reports.filter(r => currentTab === 'resolved' ? r.resolved : !r.resolved);
+    if (!list.length) {
+      c.innerHTML = `<div class="empty">${currentTab === 'resolved' ? '対応済みはまだありません' : '✨ 未対応の通報はありません'}</div>`;
+      return;
+    }
+    c.innerHTML = list.map(r => `
+      <div class="report-card ${r.resolved ? 'resolved' : ''}">
+        <div class="report-cat">${escapeHtml(r.categoryLabel)}</div>
+        <div class="report-reason">${escapeHtml(r.reason || '（詳細記入なし）')}</div>
+        <div class="report-users">
+          <div class="report-user">
+            <div class="role">🚨 通報された人</div>
+            <div class="name">${escapeHtml(r.reportedUserName || '不明')}</div>
+            <div class="id">${escapeHtml(r.reportedUserId || '')}</div>
+            <a href="https://console.firebase.google.com/project/spice-app-7ca98/firestore/databases/default/data/~2Fusers~2F${encodeURIComponent(r.reportedUserId || '')}" target="_blank">Firestoreで開く →</a>
+          </div>
+          <div class="report-user">
+            <div class="role">📣 通報した人</div>
+            <div class="name">${escapeHtml(r.reporterName || '不明')}</div>
+            <div class="id">${escapeHtml(r.reporterUserId || '')}</div>
+            <a href="https://console.firebase.google.com/project/spice-app-7ca98/firestore/databases/default/data/~2Fusers~2F${encodeURIComponent(r.reporterUserId || '')}" target="_blank">Firestoreで開く →</a>
+          </div>
+        </div>
+        <div class="report-time">通報日時: ${r.createdAtStr}</div>
+        <div class="report-actions">
+          ${r.resolved
+            ? `<button class="btn-neutral" data-reopen="${r.id}">未対応に戻す</button>`
+            : `<button class="btn-approve" data-resolve="${r.id}">✓ 対応済みにする</button>`
+          }
+        </div>
+      </div>
+    `).join('');
+    c.querySelectorAll('[data-resolve]').forEach(b => b.onclick = () => resolveReport(b.dataset.resolve, true));
+    c.querySelectorAll('[data-reopen]').forEach(b => b.onclick = () => resolveReport(b.dataset.reopen, false));
+  }
+}
+
+async function approve(uid) {
+  try {
+    await updateDoc(doc(db, 'users', uid), {
+      ageVerificationStatus: 'approved',
+      approvedAt: serverTimestamp(),
+    });
+    toast('承認しました');
+  } catch (e) { toast('失敗: ' + e.message); }
+}
+
+async function reject(uid) {
+  if (!confirm('このユーザーを却下しますか？\nユーザーには再提出を促す通知が表示されます。')) return;
+  try {
+    await updateDoc(doc(db, 'users', uid), {
+      ageVerificationStatus: 'rejected',
+      rejectedAt: serverTimestamp(),
+    });
+    toast('却下しました');
+  } catch (e) { toast('失敗: ' + e.message); }
+}
+
+async function resolveReport(id, resolved) {
+  try {
+    await updateDoc(doc(db, 'reports', id), {
+      resolved,
+      resolvedAt: resolved ? serverTimestamp() : null,
+    });
+    toast(resolved ? '対応済みにしました' : '未対応に戻しました');
+  } catch (e) { toast('失敗: ' + e.message); }
+}
+
+const CATEGORY_LABELS = {
+  inappropriate: '🚫 不適切なコンテンツ・画像',
+  harassment: '😡 嫌がらせ・暴言',
+  spam: '📧 スパム・宣伝行為',
+  impersonation: '🎭 なりすまし・偽プロフィール',
+  underage: '⚠️ 未成年の疑い',
+  illegal: '🚨 違法行為・犯罪行為',
+  other: '📝 その他',
+};
+
+function subscribePending() {
+  const q = query(collection(db, 'users'), where('ageVerificationStatus', '==', 'pending'));
+  return onSnapshot(q, snap => {
+    pendingUsers = snap.docs.map(d => {
+      const u = d.data();
+      const submittedAt = u.idSubmittedAt?.toDate?.();
+      return {
+        id: d.id,
+        name: u.name || '(名前未設定)',
+        age: u.age || '?',
+        gender: u.gender || '?',
+        idImageUrl: u.idImageUrl || '',
+        selfieImageUrl: u.selfieImageUrl || '',
+        submittedAt: submittedAt ? submittedAt.toLocaleString('ja-JP') : '',
+        submittedAtTs: submittedAt?.getTime() || 0,
+      };
+    }).sort((a, b) => a.submittedAtTs - b.submittedAtTs);
+    document.getElementById('pendingCount').textContent = pendingUsers.length;
+    if (currentTab === 'pending') renderContent();
+  }, err => console.error('pending snap err', err));
+}
+
+function subscribeReports() {
+  const q = query(collection(db, 'reports'));
+  return onSnapshot(q, snap => {
+    reports = snap.docs.map(d => {
+      const r = d.data();
+      const created = r.createdAt?.toDate?.();
+      return {
+        id: d.id,
+        reportedUserId: r.reportedUserId || '',
+        reportedUserName: r.reportedUserName || r.reportedUserId || '不明',
+        reporterUserId: r.reporterUserId || '',
+        reporterName: r.reporterName || r.reporterUserId || '不明',
+        category: r.category || 'other',
+        categoryLabel: CATEGORY_LABELS[r.category] || r.category || '未分類',
+        reason: r.reason || '',
+        resolved: !!r.resolved,
+        createdAt: created,
+        createdAtTs: created?.getTime() || 0,
+        createdAtStr: created ? created.toLocaleString('ja-JP') : '-',
+      };
+    }).sort((a, b) => b.createdAtTs - a.createdAtTs);
+    document.getElementById('reportCount').textContent = reports.filter(r => !r.resolved).length;
+    document.getElementById('resolvedCount').textContent = reports.filter(r => r.resolved).length;
+    if (currentTab === 'reports' || currentTab === 'resolved') renderContent();
+  }, err => console.error('reports snap err', err));
+}
+
+let unsubPending, unsubReports;
+
+onAuthStateChanged(auth, user => {
+  if (unsubPending) { unsubPending(); unsubPending = null; }
+  if (unsubReports) { unsubReports(); unsubReports = null; }
+  if (!user) {
+    renderLogin();
+    return;
+  }
+  renderShell(user);
+  unsubPending = subscribePending();
+  unsubReports = subscribeReports();
+});
+</script>
+</body>
+</html>

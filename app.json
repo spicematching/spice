@@ -3,6 +3,7 @@
     "name": "spice",
     "slug": "spice",
     "version": "1.0.0",
+    "scheme": "spice",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -10,21 +11,46 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0d0d0d"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.spice.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "ストーリー動画の撮影に使用します",
+        "NSMicrophoneUsageDescription": "ストーリー動画の撮影とビデオ通話に使用します",
+        "NSPhotoLibraryUsageDescription": "プロフィール写真の選択に使用します"
+      }
     },
     "android": {
+      "package": "com.spice.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#0d0d0d"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "READ_EXTERNAL_STORAGE",
+        "VIBRATE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#FF6B35"
+        }
+      ],
+      "expo-video",
+      "expo-audio"
+    ]
   }
 }

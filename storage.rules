@@ -1,0 +1,61 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isAuth() {
+      return request.auth != null;
+    }
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    function isAdmin() {
+      return isAuth() && request.auth.token.email in [
+        'spice.matching@gmail.com'
+      ];
+    }
+    // 画像・動画のみ、最大20MBまで
+    function isValidMedia() {
+      return request.resource.size < 20 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*')
+            || request.resource.contentType.matches('video/.*'));
+    }
+
+    // ストーリー: 認証ユーザーは閲覧、本人のみアップロード
+    match /stories/{userId}/{fileName} {
+      allow read: if isAuth();
+      allow write: if isOwner(userId) && (request.resource == null || isValidMedia());
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // プロフィール画像: 認証ユーザーは閲覧、本人のみアップロード
+    match /profiles/{userId}/{fileName} {
+      allow read: if isAuth();
+      allow write: if isOwner(userId) && (request.resource == null || isValidMedia());
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // アイコン画像（profile-setup.tsx でアップロードされる場所）
+    match /icons/{fileName} {
+      allow read: if isAuth();
+      // ファイル名が <uid>.jpg 形式 → 本人のみアップロード可
+      allow write: if isAuth()
+                   && fileName.matches(request.auth.uid + '\\..*')
+                   && (request.resource == null || isValidMedia());
+      allow delete: if isAuth() && fileName.matches(request.auth.uid + '\\..*');
+    }
+
+    // 身分証・セルフィー: 本人と管理者のみアクセス可（超機密）
+    match /id-verification/{fileName} {
+      allow read: if (isAuth() && fileName.matches(request.auth.uid + '_.*')) || isAdmin();
+      allow write: if isAuth()
+                   && fileName.matches(request.auth.uid + '_.*')
+                   && (request.resource == null || isValidMedia());
+      allow delete: if (isAuth() && fileName.matches(request.auth.uid + '_.*')) || isAdmin();
+    }
+
+    // それ以外: デフォルトで全拒否
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
