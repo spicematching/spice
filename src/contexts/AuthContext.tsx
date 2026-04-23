@@ -8,8 +8,26 @@ import {
   type User,
   type UserCredential,
 } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { getFunctions, httpsCallable } from 'firebase/functions';
+import app, { auth } from '../config/firebase';
 import { registerForPushNotifications } from '../utils/notifications';
+
+// Cloud Functions 経由でメール送信（Gmail SMTP）。
+// 失敗時は Firebase 標準にフォールバックする。
+async function sendVerificationEmailViaCloud(): Promise<void> {
+  const functions = getFunctions(app, 'asia-northeast1');
+  const callable = httpsCallable(functions, 'sendVerificationEmail');
+  await callable({});
+}
+
+async function sendVerificationEmailWithFallback(currentUser: User): Promise<void> {
+  try {
+    await sendVerificationEmailViaCloud();
+  } catch (e) {
+    console.warn('sendVerificationEmail (Cloud) failed, falling back to Firebase default', e);
+    await sendEmailVerification(currentUser);
+  }
+}
 
 type AuthContextType = {
   user: User | null;
@@ -54,16 +72,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     // 確認メールを送信（失敗してもアカウント作成自体は成功させる）
     try {
-      await sendEmailVerification(cred.user);
+      await sendVerificationEmailWithFallback(cred.user);
     } catch (e) {
-      console.warn('sendEmailVerification failed', e);
+      console.warn('sendVerificationEmail (all paths) failed', e);
     }
     return cred;
   };
 
   const resendEmailVerification = async () => {
     if (!auth.currentUser) throw new Error('not signed in');
-    await sendEmailVerification(auth.currentUser);
+    await sendVerificationEmailWithFallback(auth.currentUser);
   };
 
   const reloadUser = async () => {

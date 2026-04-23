@@ -1,4 +1,4 @@
-const { onRequest } = require('firebase-functions/v2/https');
+const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
@@ -493,6 +493,115 @@ ${pendingUsers
       console.log('Admin email sent:', subject);
     } catch (err) {
       console.error('Mail send failed:', err);
+    }
+  }
+);
+
+// ==========================================
+// メールアドレス確認メールを Gmail SMTP 経由で送信
+// （Firebase 標準の sendEmailVerification は迷惑メール率が高いため自前送信に切り替え）
+// ==========================================
+exports.sendVerificationEmail = onCall(
+  {
+    region: 'asia-northeast1',
+    secrets: [gmailUser, gmailPass],
+    cors: true,
+  },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) {
+      throw new HttpsError('unauthenticated', 'ログインが必要です');
+    }
+
+    const userRecord = await admin.auth().getUser(uid);
+    if (!userRecord.email) {
+      throw new HttpsError('failed-precondition', 'メールアドレスが登録されていません');
+    }
+    if (userRecord.emailVerified) {
+      return { ok: true, alreadyVerified: true };
+    }
+
+    // Firebase が生成する認証リンク（このリンクをタップで emailVerified=true になる）
+    const link = await admin.auth().generateEmailVerificationLink(userRecord.email);
+
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: gmailUser.value(),
+        pass: gmailPass.value(),
+      },
+    });
+
+    const displayName = userRecord.displayName || 'spice ユーザー';
+    const subject = '【spice】メールアドレスの確認をお願いします';
+
+    const text = `${displayName} 様
+
+spice にご登録いただきありがとうございます🌶️
+
+メールアドレス（${userRecord.email}）の確認のため、下記のリンクをタップしてください。
+
+${link}
+
+このリンクには有効期限があります。
+期限が切れた場合はアプリから再送信できます。
+
+このメールに心当たりがない場合は、お手数ですが破棄してください。
+他人があなたのメールアドレスを誤って入力した可能性があります。
+
+──────────────
+spice運営事務局
+お問い合わせ: spice.matching@gmail.com
+https://spicematching.github.io/spice/
+──────────────`;
+
+    const html = `
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; background: #fff; color: #222;">
+  <div style="text-align: center; margin-bottom: 24px;">
+    <div style="font-size: 28px; font-weight: bold; color: #FF6B35; letter-spacing: 4px;">🌶️ spice</div>
+    <div style="font-size: 12px; color: #888; margin-top: 4px;">今夜の飲みに、刺激を。</div>
+  </div>
+  <h1 style="font-size: 18px; color: #222; margin-bottom: 12px;">メールアドレスの確認をお願いします</h1>
+  <p style="color: #555; font-size: 14px; line-height: 1.7;">
+    ${displayName} 様<br><br>
+    spice にご登録いただきありがとうございます。<br>
+    下記のボタンをタップして、メールアドレスの確認を完了してください。
+  </p>
+  <div style="text-align: center; margin: 32px 0;">
+    <a href="${link}" style="display: inline-block; background: #FF6B35; color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 30px; font-weight: bold; font-size: 14px;">
+      メールアドレスを確認する
+    </a>
+  </div>
+  <p style="color: #888; font-size: 12px; line-height: 1.6;">
+    ボタンが押せない場合は、以下の URL をブラウザに貼り付けてください：<br>
+    <span style="word-break: break-all; color: #FF6B35;">${link}</span>
+  </p>
+  <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+  <p style="color: #999; font-size: 11px; line-height: 1.6;">
+    このメールに心当たりがない場合は破棄してください。<br>
+    他人があなたのメールアドレスを誤って入力した可能性があります。
+  </p>
+  <div style="text-align: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid #eee; color: #aaa; font-size: 11px;">
+    spice運営事務局<br>
+    <a href="mailto:spice.matching@gmail.com" style="color: #FF6B35; text-decoration: none;">spice.matching@gmail.com</a>
+    　|
+    <a href="https://spicematching.github.io/spice/" style="color: #FF6B35; text-decoration: none;">spicematching.github.io/spice/</a>
+  </div>
+</div>`.trim();
+
+    try {
+      await transporter.sendMail({
+        from: `"spice運営事務局" <${gmailUser.value()}>`,
+        to: userRecord.email,
+        subject,
+        text,
+        html,
+      });
+      console.log(`Verification email sent to ${userRecord.email}`);
+      return { ok: true };
+    } catch (err) {
+      console.error('sendVerificationEmail failed:', err);
+      throw new HttpsError('internal', 'メール送信に失敗しました');
     }
   }
 );
