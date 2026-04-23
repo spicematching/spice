@@ -6,6 +6,10 @@ import { AuthProvider, useAuth } from '../src/contexts/AuthContext';
 import { getCollection, setDocument } from '../src/config/firestoreApi';
 import * as Notifications from 'expo-notifications';
 import { initPurchases } from '../src/utils/purchases';
+import { initSentry, setSentryUser, Sentry } from '../src/config/sentry';
+
+// Sentry を一番最初に初期化（コンポーネント外で1回だけ）
+initSentry();
 
 // 着信として有効と見なす最大経過時間（秒）。これを超えた ringing コールは古いので無視＆timeout化
 const CALL_FRESH_WINDOW_MS = 60 * 1000;
@@ -16,9 +20,13 @@ function CallListener() {
   const { user } = useAuth();
   const handlingCallId = useRef<string | null>(null);
 
-  // RevenueCat初期化
+  // RevenueCat初期化 + Sentryユーザー紐付け
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setSentryUser(null);
+      return;
+    }
+    setSentryUser(user.uid);
     initPurchases(user.uid).catch(() => {});
   }, [user]);
 
@@ -100,7 +108,7 @@ function CallListener() {
   return null;
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const router = useRouter();
 
   // 通知タップ/受信でアプリ内遷移
@@ -193,3 +201,6 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
+
+// Sentry.wrap でアンキャッチ例外・パフォーマンス計測を自動収集
+export default Sentry.wrap(RootLayout);

@@ -50,7 +50,8 @@
         }
       ],
       "expo-video",
-      "expo-audio"
+      "expo-audio",
+      "@sentry/react-native"
     ]
   }
 }
