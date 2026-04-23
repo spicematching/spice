@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -105,7 +106,10 @@ export default function VerifyEmailScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.inner}>
+      <ScrollView
+        contentContainerStyle={styles.inner}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.emoji}>📩</Text>
         <Text style={styles.title}>メールを確認してください</Text>
         <Text style={styles.email}>{user?.email}</Text>
@@ -113,6 +117,30 @@ export default function VerifyEmailScreen() {
           上記のアドレス宛に確認メールを送信しました。{'\n'}
           メール内のリンクをタップして認証を完了してください。
         </Text>
+
+        {/* 迷惑メール案内（最重要・目立つ位置） */}
+        <View style={styles.warnBox}>
+          <Text style={styles.warnTitle}>📬 メールが届かない場合</Text>
+          <Text style={styles.warnBody}>
+            <Text style={styles.warnBold}>① 迷惑メール / スパムフォルダを確認</Text>{'\n'}
+            <Text style={styles.warnSub}>
+              送信元:{' '}
+              <Text style={styles.warnMono}>noreply@spice-app-7ca98.firebaseapp.com</Text>
+              {'\n'}
+              件名: 「spice」「メールアドレス」等で検索してみてください。
+            </Text>
+            {'\n\n'}
+            <Text style={styles.warnBold}>② 迷惑メールではない設定にする</Text>{'\n'}
+            <Text style={styles.warnSub}>
+              Gmail なら「迷惑メールではない」、iCloud なら「移動 → 受信」を選ぶと、次回以降届きやすくなります。
+            </Text>
+            {'\n\n'}
+            <Text style={styles.warnBold}>③ それでも届かない場合</Text>{'\n'}
+            <Text style={styles.warnSub}>
+              下の「再送信」を押す、または別のメールアドレスで登録し直してください。
+            </Text>
+          </Text>
+        </View>
 
         <TouchableOpacity
           style={styles.primaryBtn}
@@ -145,11 +173,7 @@ export default function VerifyEmailScreen() {
         <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
           <Text style={styles.signOutText}>別のアカウントでログイン</Text>
         </TouchableOpacity>
-
-        <Text style={styles.hint}>
-          ※ メールが届かない場合は迷惑メールフォルダもご確認ください。
-        </Text>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -160,8 +184,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#0d0d0d',
   },
   inner: {
-    flex: 1,
-    paddingHorizontal: 32,
+    flexGrow: 1,
+    paddingHorizontal: 28,
+    paddingVertical: 32,
     justifyContent: 'center',
   },
   emoji: {
@@ -232,5 +257,37 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 24,
     lineHeight: 18,
+  },
+  warnBox: {
+    backgroundColor: '#1f1612',
+    borderWidth: 1,
+    borderColor: '#FF6B35',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  warnTitle: {
+    color: '#FF6B35',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  warnBody: {
+    color: '#ddd',
+    fontSize: 13,
+    lineHeight: 20,
+  },
+  warnBold: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  warnSub: {
+    color: '#bbb',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  warnMono: {
+    color: '#FF6B35',
+    fontSize: 11,
   },
 });
