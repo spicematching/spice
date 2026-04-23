@@ -52,6 +52,11 @@ export default function Index() {
     return <Redirect href="/(auth)/login" />;
   }
 
+  // メール認証が完了していない場合は確認画面へ
+  if (!user.emailVerified) {
+    return <Redirect href="/(auth)/verify-email" />;
+  }
+
   if (!hasProfile) {
     return <Redirect href="/(auth)/profile-setup" />;
   }

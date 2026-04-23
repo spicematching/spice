@@ -37,9 +37,15 @@ export default function LoginScreen() {
     try {
       if (isSignUp) {
         await signUp(email.trim(), password);
-        router.replace('/(auth)/profile-setup');
+        // 確認メール送信済み → メール認証待ち画面へ
+        router.replace('/(auth)/verify-email');
       } else {
         const cred = await signIn(email.trim(), password);
+        // メール未認証なら認証画面へ
+        if (!cred.user.emailVerified) {
+          router.replace('/(auth)/verify-email');
+          return;
+        }
         // ローカルでプロフィール存在チェック
         const hasProfile = await AsyncStorage.getItem(`profile_${cred.user.uid}`);
         if (hasProfile === 'true') {

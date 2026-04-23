@@ -3,6 +3,7 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  sendEmailVerification,
   signOut as firebaseSignOut,
   type User,
   type UserCredential,
@@ -16,6 +17,8 @@ type AuthContextType = {
   signIn: (email: string, password: string) => Promise<UserCredential>;
   signUp: (email: string, password: string) => Promise<UserCredential>;
   signOut: () => Promise<void>;
+  resendEmailVerification: () => Promise<void>;
+  reloadUser: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType>({
@@ -24,6 +27,8 @@ const AuthContext = createContext<AuthContextType>({
   signIn: async () => { throw new Error('not initialized'); },
   signUp: async () => { throw new Error('not initialized'); },
   signOut: async () => {},
+  resendEmailVerification: async () => {},
+  reloadUser: async () => {},
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -46,7 +51,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string) => {
-    return createUserWithEmailAndPassword(auth, email, password);
+    const cred = await createUserWithEmailAndPassword(auth, email, password);
+    // 確認メールを送信（失敗してもアカウント作成自体は成功させる）
+    try {
+      await sendEmailVerification(cred.user);
+    } catch (e) {
+      console.warn('sendEmailVerification failed', e);
+    }
+    return cred;
+  };
+
+  const resendEmailVerification = async () => {
+    if (!auth.currentUser) throw new Error('not signed in');
+    await sendEmailVerification(auth.currentUser);
+  };
+
+  const reloadUser = async () => {
+    if (!auth.currentUser) return;
+    await auth.currentUser.reload();
+    setUser({ ...auth.currentUser });
   };
 
   const signOut = async () => {
@@ -54,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, resendEmailVerification, reloadUser }}>
       {children}
     </AuthContext.Provider>
   );
